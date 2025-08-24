@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon注文レポート to B2クラウド変換 (シンプル版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 2.5rem; /* UI参照から取得 */
+            border-radius: 1.5rem; /* UI参照から取得 */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        /* フォームグループ共通スタイル */
+        .form-group label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        .form-group input[type="text"],
+        .form-group select,
+        .form-group input[type="file"],
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            color: #4b5563;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .form-group input[type="text"]:focus,
+        .form-group select:focus,
+        .form-group input[type="file"]:focus,
+        .form-group textarea:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+            outline: none;
+        }
+
+        /* ボタン共通スタイル */
+        .btn {
+            padding: 1rem 1.75rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+            transform: translateY(-1px);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+            transform: translateY(-1px);
+        }
+        .btn-secondary:active {
+            transform: translateY(0);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Warning/Success text */
+        .warning-text {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        .success-text {
+            color: #22c55e;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Modals for messages */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        /* Checkbox specific styling */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+
+        /* Navigation styles */
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            background-color: #f3f4f6;
+            padding: 0.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        .nav-buttons .btn {
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        .nav-buttons .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .nav-buttons .btn-secondary {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+
+        /* Tab content styling */
+        .tab-content-container {
+            position: relative;
+        }
+
+        .tab-content {
+            transition: opacity 0.3s ease-in-out, max-height 0.3s ease-in-out;
+            max-height: 2000px;
+            overflow: hidden;
+            opacity: 1;
+            padding: 0;
+        }
+        .tab-content.hidden {
+            opacity: 0;
+            max-height: 0;
+            pointer-events: none;
+            padding: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
+        .tab-content.active {
+            opacity: 1;
+            max-height: 2000px;
+            pointer-events: auto;
+            position: relative;
+        }
+
+        /* Generic Section Styles */
+        .info-section {
+            background-color: #f9fafb;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            color: #4b5563;
+        }
+        .info-section h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        .info-section h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #374151;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .info-section p, .info-section ul {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+        .info-section ul {
+            list-style-type: disc;
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .info-section li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center p-8">
+    <div id="app" class="container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">
+            Amazon注文レポート → B2クラウド変換 (シンプル版)
+        </h1>
+
+        <!-- ナビゲーションタブメニュー -->
+        <div class="nav-buttons">
+            <button id="tab-tool" class="btn btn-primary">変換ツール</button>
+            <button id="tab-privacy" class="btn btn-secondary">プライバシーポリシー</button>
+        </div>
+
+        <!-- タブコンテンツを囲むコンテナ -->
+        <div id="tab-content-container">
+            <!-- 変換ツールタブのコンテンツ -->
+            <div id="tab-tool-content" class="tab-content active">
+                <!-- ご依頼主情報設定フォーム -->
+                <div class="bg-blue-50 p-6 rounded-xl mb-6 shadow-sm">
+                    <h2 class="text-xl font-semibold text-blue-800 mb-4">
+                        <i class="fas fa-user-circle mr-2"></i>ご依頼主情報 (任意 - 一度入力すると保存されます)
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label for="shipperNameKanji">ご依頼主名 (漢字)</label>
+                            <input type="text" id="shipperNameKanji" placeholder="あなたの会社名">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipperNameKana">ご依頼主名 (カナ)</label>
+                            <input type="text" id="shipperNameKana" placeholder="アナタノカイシャメイ">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipperPostalCode">ご依頼主郵便番号 (ハイフンなし)</label>
+                            <input type="text" id="shipperPostalCode" placeholder="1000000" maxlength="7">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipperPrefecture">ご依頼主住所 (都道府県)</label>
+                            <input type="text" id="shipperPrefecture" placeholder="東京都">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipperCity">ご依頼主住所 (市区郡町村)</label>
+                            <input type="text" id="shipperCity" placeholder="千代田区千代田">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipperAddress">ご依頼主住所 (町・番地)</label>
+                            <input type="text" id="shipperAddress" placeholder="1-1">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipperBuilding">ご依頼主住所 (アパートマンション名)</label>
+                            <input type="text" id="shipperBuilding" placeholder="〇〇マンション101号室">
+                        </div>
+                        <div class="form-group">
+                            <label for="shipperPhone">ご依頼主電話番号 (ハイフンなし)</label>
+                            <input type="text" id="shipperPhone" placeholder="0312345678" maxlength="11">
+                        </div>
+                        <div class="form-group">
+                            <label for="handling1">荷扱い１</label>
+                            <select id="handling1" class="w-full p-3 border rounded-lg">
+                                <option value="">選択してください</option>
+                                <option value="精密機器">精密機器</option>
+                                <option value="ワレモノ注意">ワレモノ注意</option>
+                                <option value="下積厳禁">下積厳禁</option>
+                                <option value="天地無用">天地無用</option>
+                                <option value="ナマモノ">ナマモノ</option>
+                                <option value="水濡厳禁">水濡厳禁</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="handling2">荷扱い２</label>
+                            <select id="handling2" class="w-full p-3 border rounded-lg">
+                                <option value="">選択してください</option>
+                                <option value="精密機器">精密機器</option>
+                                <option value="ワレモノ注意">ワレモノ注意</option>
+                                <option value="下積厳禁">下積厳禁</option>
+                                <option value="天地無用">天地無用</option>
+                                <option value="ナマモノ">ナマモノ</option>
+                                <option value="水濡厳禁">水濡厳禁</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="billingCustomerCode">請求先顧客コード (半角数字10～12文字)</label>
+                            <input type="text" id="billingCustomerCode" placeholder="1234567890" maxlength="12">
+                        </div>
+                        <div class="form-group">
+                            <label for="freightManagementNumber">運賃管理番号 (半角数字2文字)</label>
+                            <input type="text" id="freightManagementNumber" placeholder="01" maxlength="2">
+                        </div>
+                    </div>
+                    <div class="flex justify-end mt-4">
+                        <button id="saveShipperInfoButton" class="btn btn-secondary px-4 py-2 text-sm">
+                            ご依頼主情報を保存
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 変換設定フォーム -->
+                <div class="bg-green-50 p-6 rounded-xl mb-6 shadow-sm">
+                    <h2 class="text-xl font-semibold text-green-800 mb-4">
+                        <i class="fas fa-cog mr-2"></i>変換設定
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label for="shippingType">送り状種類</label>
+                            <select id="shippingType" class="w-full p-3 border rounded-lg">
+                                <option value="0">0: 発払い</option>
+                                <option value="2">2: コレクト</option>
+                                <option value="3">3: クロネコゆうメール</option>
+                                <option value="4">4: タイム</option>
+                                <option value="5">5: 着払い</option>
+                                <option value="6">6: 発払い（複数口）</option>
+                                <option value="7">7: クロネコゆうパケット</option>
+                                <option value="8">8: 宅急便コンパクト</option>
+                                <option value="9">9: 宅急便コンパクトコレクト</option>
+                                <option value="A">A: ネコポス</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="coolType">クール区分</label>
+                            <select id="coolType" class="w-full p-3 border rounded-lg">
+                                <option value="0">0: 通常</option>
+                                <option value="1">1: クール冷凍</option>
+                                <option value="2">2: クール冷蔵</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="amazonFile">Amazon注文レポート (Shift-JIS CSV/TXT) <br>(ドラッグ&ドロップまたはファイル選択 / 最大10ファイル)</label>
+                            <input type="file" id="amazonFile" accept=".csv, .txt" class="p-3 border rounded-lg" multiple>
+                        </div>
+                        <div class="form-group md:col-span-2">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="openB2CloudAutomatically">
+                                <label for="openB2CloudAutomatically" class="inline-block mb-0 cursor-pointer">ヤマトビジネスメンバーズページを自動で開く</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 変換とダウンロードボタン -->
+                <div class="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+                    <button id="convertButton" class="btn btn-primary">
+                        <span id="buttonText">変換してダウンロード</span>
+                        <span id="loadingSpinner" class="loading-spinner hidden"></span>
+                    </button>
+                    <button id="resetButton" class="btn btn-secondary">
+                        リセット
+                    </button>
+                </div>
+
+                <p id="message" class="text-center mt-6 text-gray-700"></p>
+            </div>
+
+            <!-- プライバシーポリシータブのコンテンツ -->
+            <div id="tab-privacy-content" class="tab-content hidden info-section">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">プライバシーポリシー</h2>
+                <p class="mb-4">当アプリは、お客様の個人情報保護に最大限配慮いたします。</p>
+                
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">データの収集</h3>
+                <p class="mb-4">当アプリにご提供いただくAmazon注文レポートファイルや、ご入力いただくご依頼主情報は、**お客様のブラウザ内でのみ処理され、いかなるデータも当社のサーバーに送信・保存されることはありません。** すべての処理はご利用のデバイス上で完結します。</p>
+
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">Cookieの使用</h3>
+                <p class="mb-4">当アプリは、お客様が入力されたご依頼主情報およびその他の設定を、お客様のブラウザの**ローカルストレージ**に保存します。これは、アプリを再度ご利用いただく際に、以前の設定を自動で読み込むことで利便性を向上させることを目的としています。これらのデータは、お客様のデバイス外に送信されることはありません。</p>
+
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">第三者へのデータ提供</h3>
+                <p class="mb-4">当アプリは、お客様の個人情報を第三者に提供することはありません。</p>
+
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">お問い合わせ</h3>
+                <p class="mb-4">プライバシーポリシーに関するご質問は、以下のメールアドレスまでお問い合わせください。</p>
+                <p class="text-blue-600 font-semibold text-center">chickenyoung1019@gmail.com</p>
+                <p class="mt-4 text-sm text-gray-500">本プライバシーポリシーは、必要に応じて改定されることがあります。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals for messages -->
+    <div id="errorMessageModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-red-600 mb-4">エラー</h3>
+            <p id="errorMessageText" class="mb-6"></p>
+            <button class="btn btn-primary" onclick="closeModal('errorMessageModal')">閉じる</button>
+        </div>
+    </div>
+
+    <div id="successMessageModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-green-600 mb-4">成功</h3>
+            <p id="successMessageText" class="mb-6"></p>
+            <button class="btn btn-primary" onclick="closeModal('successMessageModal')">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Modals for messages (グローバルスコープで定義) ---
+        function showMessageModal(title, message, type) {
+            const modalId = type === 'error' ? 'errorMessageModal' : 'successMessageModal';
+            const modal = document.getElementById(modalId);
+            const messageTextElement = document.getElementById(modalId === 'errorMessageModal' ? 'errorMessageText' : 'successMessageText');
+            messageTextElement.textContent = message;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        const MAX_FILES = 10; // 最大ファイル数
+
+        // Shipper Info Input IDs
+        const shipperInputIds = [
+            'shipperNameKanji', 'shipperNameKana', 'shipperPostalCode',
+            'shipperPrefecture', 'shipperCity', 'shipperAddress',
+            'shipperBuilding', 'shipperPhone', 'handling1',
+            'handling2', 'billingCustomerCode', 'freightManagementNumber'
+        ];
+
+        const SHIPPER_INFO_KEY = 'b2cloudShipperInfo'; // localStorageのキー
+
+        /**
+         * ご依頼主情報をフォームから取得し、LocalStorageに保存する。
+         */
+        function saveShipperInfoToLocalStorage() {
+            const shipperData = {};
+            shipperInputIds.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    shipperData[id] = element.value;
+                }
+            });
+            try {
+                localStorage.setItem(SHIPPER_INFO_KEY, JSON.stringify(shipperData));
+                console.log("Shipper info saved to localStorage.");
+                showMessageModal('保存完了', 'ご依頼主情報がブラウザに保存されました。', 'success');
+            } catch (e) {
+                console.error("Error saving shipper info to localStorage:", e);
+                showMessageModal('エラー', 'ご依頼主情報の保存に失敗しました。', 'error');
+            }
+        }
+
+        /**
+         * LocalStorageからご依頼主情報を読み込み、フォームにセットする。
+         * @returns {Object} ロードしたご依頼主情報、または空のオブジェクト
+         */
+        function loadShipperInfoFromLocalStorage() {
+            try {
+                const storedData = localStorage.getItem(SHIPPER_INFO_KEY);
+                if (storedData) {
+                    const data = JSON.parse(storedData);
+                    shipperInputIds.forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element && data[id] !== undefined) {
+                            element.value = data[id];
+                        }
+                    });
+                    console.log("Shipper info loaded from localStorage.");
+                    return data; // ロードしたデータを返す
+                } else {
+                    console.log("No shipper info found in localStorage.");
+                    return {}; // データがない場合は空のオブジェクトを返す
+                }
+            } catch (e) {
+                console.error("Error loading shipper info from localStorage:", e);
+                showMessageModal('エラー', 'ご依頼主情報の読み込みに失敗しました。', 'error');
+                return {}; // エラー時も空のオブジェクトを返す
+            }
+        }
+
+        /**
+         * ご依頼主情報のフォームをクリアする。
+         */
+        function clearShipperInfoForm() {
+            shipperInputIds.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.value = '';
+                }
+            });
+            localStorage.removeItem(SHIPPER_INFO_KEY); // localStorageからも削除
+            console.log("Shipper info form cleared and removed from localStorage.");
+        }
+
+        /**
+         * Amazon注文レポートCSV/TXTファイルを解析し、B2クラウド形式に変換するためのデータを生成する。
+         *
+         * @param {File[]} amazonFiles - アップロードされたAmazon注文レポートファイル（Shift-JIS CSV/TXT）の配列
+         * @param {Object} shipperInfo - ご依頼主情報（B2クラウドCSVの依頼主欄に挿入されるデータ）
+         * @param {string} shippingType - 送り状種類
+         * @param {string} coolType - クール区分
+         * @param {string} handling1 - 荷扱い１
+         * @param {string} handling2 - 荷扱い２
+         * @param {string} billingCustomerCode - 請求先顧客コード
+         * @param {string} freightManagementNumber - 運賃管理番号
+         * @returns {Promise<Blob>} B2クラウドフォーマットのCSV Blob
+         */
+        async function convertAmazonReportToB2CloudCSV(
+            amazonFiles,
+            shipperInfo, // <--- ここが問題の原因だったshipperInfo
+            shippingType,
+            coolType,
+            handling1,
+            handling2,
+            billingCustomerCode,
+            freightManagementNumber
+        ) {
+            // --- shipperInfoが不正な値の場合に備えた防御的なチェック ---
+            if (!shipperInfo || typeof shipperInfo !== 'object') {
+                console.warn("Invalid or missing shipperInfo provided to conversion function. Using empty defaults.");
+                shipperInfo = {}; // エラーを避けるため、空のオブジェクトを割り当てる
+            }
+
+            let allAmazonData = [];
+
+            // --- 1. Amazon注文レポートファイルの読み込みと解析 ---
+            for (const file of Array.from(amazonFiles)) {
+                const reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+
+                const fileData = await new Promise((resolve, reject) => {
+                    reader.onload = async (e) => {
+                        let text = e.target.result;
+                        try {
+                            // BOM付きShift-JIS対応 (UTF-8 BOM EFBBBF を除去)
+                            if (text.byteLength >= 3 && new Uint8Array(text).subarray(0, 3).every((val, i) => val === [0xEF, 0xBB, 0xBF][i])) {
+                                text = text.slice(3);
+                            }
+                            const decoder = new TextDecoder('shift-jis'); // Shift-JISでデコード
+                            text = decoder.decode(new Uint8Array(text));
+                        } catch (decodeError) {
+                            return reject(new Error('Shift-JISデコードに失敗しました。ファイルが正しいエンコーディングか確認してください。'));
+                        }
+
+                        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+                        if (lines.length === 0) {
+                            return reject(new Error('ファイルが空であるか、データが含まれていません。'));
+                        }
+
+                        const headers = lines[0].split('\t').map(h => h.trim()); // ヘッダーをタブで分割
+                        const dataRows = lines.slice(1);
+
+                        const parsedItems = dataRows.map(row => {
+                            const values = row.split('\t'); // データ行をタブで分割
+                            let obj = {};
+                            headers.forEach((header, i) => {
+                                obj[header] = values[i] !== undefined ? values[i].trim() : '';
+                            });
+                            return obj;
+                        });
+                        resolve(parsedItems);
+                    };
+                    reader.onerror = reject;
+                });
+                allAmazonData = allAmazonData.concat(fileData);
+            }
+
+            if (allAmazonData.length === 0) {
+                throw new Error('有効な注文情報を抽出できませんでした。');
+            }
+
+            // --- 2. AmazonデータをB2クラウドフォーマットにマッピング ---
+            const b2_columns = [
+                "お客様管理番号", "送り状種類", "クール区分", "伝票番号", "出荷予定日", "お届け予定日", "配達時間帯",
+                "お届け先コード", "お届け先電話番号", "お届け先電話番号枝番", "お届け先郵便番号", "お届け先住所",
+                "お届け先アパートマンション名", "お届け先会社・部門１", "お届け先会社・部門名２", "お届け先名",
+                "お届け先名(ｶﾅ)", "敬称", "ご依頼主コード", "ご依頼主電話番号", "ご依頼主電話番号枝番",
+                "ご依頼主郵便番号", "ご依頼主住所", "ご依頼主アパートマンション", "ご依頼主名", "ご依頼主名(ｶﾅ)",
+                "品名コード１", "品名１", "品名コード２", "品名２", "荷扱い１", "荷扱い２", "記事",
+                "ｺﾚｸﾄ代金引換額（税込)", "内消費税税額等", "止置き", "営業所コード", "発行枚数", "個数口表示フラグ",
+                "請求先顧客コード", "請求先分類コード", "運賃管理番号", "クロネコwebコレクトデータ登録", "クロネコwebコレクト加盟店番号",
+                "クロネコwebコレクト申込受付番号１", "クロネコwebコレクト申込受付番号２", "クロネコwebコレクト申込受付番号３",
+                "お届け予定ｅメール利用区分", "お届け予定ｅメールe-mailアドレス", "入力機種", "お届け予定ｅメールメッセージ",
+                "お届け完了ｅメール利用区分", "お届け完了ｅメールe-mailアドレス", "お届け完了ｅメールメッセージ",
+                "クロネコ収納代行利用区分", "予備", "収納代行請求金額(税込)", "収納代行内消費税額等", "収納代行請求先郵便番号",
+                "収納代行請求先住所", "収納代行請求先住所（アパートマンション名）", "収納代行請求先会社・部門名１",
+                "収納代行請求先会社・部門名２", "収納代行請求先名(漢字)", "収納代行請求先名(カナ)", "収納代行問合せ先名(漢字)",
+                "収納代行問合せ先郵便番号", "収納代行問合せ先住所", "収納代行問合せ先住所（アパートマンション名）",
+                "収納代行問合せ先電話番号", "収納代行管理番号", "収納代行品名", "収納代行備考", "複数口くくりキー",
+                "検索キータイトル1", "検索キー1", "検索キータイトル2", "検索キー2", "検索キータイトル3", "検索キー3",
+                "検索キータイトル4", "検索キー4", "検索キータイトル5", "検索キー5", "予備", "予備",
+                "投函予定メール利用区分", "投函予定メールe-mailアドレス", "投函予定メールメッセージ",
+                "投函完了メール（お届け先宛）利用区分", "投函完了メール（お届け先宛）e-mailアドレス", "投函完了メール（お届け先宛）メールメッセージ",
+                "投函完了メール（ご依頼主宛）利用区分", "投函完了メール（ご依頼主宛）e-mailアドレス", "投函完了メール（ご依頼主宛）メールメッセージ"
+            ];
+
+            let b2CloudRows = [];
+            b2CloudRows.push(b2_columns.map(col => `"${col.replace(/"/g, '""')}"`).join(',')); // ヘッダー行
+
+            // order-id, recipient-name, ship-postal-code で注文をグループ化
+            const groupedOrders = allAmazonData.reduce((acc, currentItem) => {
+                const groupKey = `${currentItem["order-id"]}-${currentItem["recipient-name"]}-${currentItem["ship-postal-code"]}`;
+                
+                if (!acc[groupKey]) {
+                    acc[groupKey] = {
+                        mainOrder: currentItem,
+                        products: []
+                    };
+                }
+                // Amazonレポートの場合、商品名はproduct-nameとquantity-purchasedしかないので、それを追加
+                acc[groupKey].products.push({
+                    name: currentItem["product-name"],
+                    quantity: parseInt(currentItem["quantity-purchased"] || '0')
+                });
+                // 2つ目の商品がある場合も考慮 (Amazonレポートには通常1つだがAI抽出との共通化のため残す)
+                if (currentItem["product-name-2"]) {
+                    acc[groupKey].products.push({
+                        name: currentItem["product-name-2"],
+                        quantity: parseInt(currentItem["quantity-purchased-2"] || '0')
+                    });
+                }
+                return acc;
+            }, {});
+
+
+            for (const groupKey in groupedOrders) {
+                const group = groupedOrders[groupKey];
+                const mainOrder = group.mainOrder;
+                const products = group.products;
+
+                let newRow = {};
+                b2_columns.forEach(col => newRow[col] = ''); // 全カラムを初期化
+
+                // --- B2クラウド項目へのマッピング ---
+                newRow["お客様管理番号"] = mainOrder["order-id"] || '';
+                newRow["送り状種類"] = shippingType;
+                newRow["クール区分"] = coolType;
+                newRow["伝票番号"] = ''; // 自動採番されるため空欄
+                
+                const today = new Date();
+                newRow["出荷予定日"] = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+                
+                // お届け予定日と配達時間帯 (Amazonレポートのscheduled-delivery-start-date/end-dateを使用)
+                const deliveryStartDate = mainOrder["scheduled-delivery-start-date"] || '';
+                const deliveryEndDate = mainOrder["scheduled-delivery-end-date"] || '';
+                const shipServiceLevel = mainOrder["ship-service-level"] || '';
+
+                if (shipServiceLevel === 'Scheduled' && deliveryStartDate && deliveryEndDate) {
+                    try {
+                        const startDate = new Date(deliveryStartDate);
+                        const endDate = new Date(deliveryEndDate);
+                        const startDatePart = `${startDate.getFullYear()}/${String(startDate.getMonth() + 1).padStart(2, '0')}/${String(startDate.getDate()).padStart(2, '0')}`;
+                        const endDatePart = `${endDate.getFullYear()}/${String(endDate.getMonth() + 1).padStart(2, '0')}/${String(endDate.getDate()).padStart(2, '0')}`;
+
+                        if (startDatePart === endDatePart) {
+                            newRow["お届け予定日"] = startDatePart;
+                        } else {
+                            newRow["お届け予定日"] = '最短日'; // 日付が一致しない場合は最短日
+                        }
+                    } catch (e) {
+                        console.error("Invalid delivery-start/end-date for Scheduled service:", deliveryStartDate, deliveryEndDate, e);
+                        newRow["お届け予定日"] = '最短日';
+                    }
+                } else {
+                    newRow["お届け予定日"] = '最短日';
+                }
+                
+                if (shipServiceLevel === 'Scheduled' && deliveryStartDate) {
+                    try {
+                        const startTime = new Date(deliveryStartDate).getHours();
+                        if (startTime >= 8 && startTime < 12) {
+                            newRow["配達時間帯"] = "0812";
+                        } else if (startTime >= 14 && startTime < 16) {
+                            newRow["配達時間帯"] = "1416";
+                        } else if (startTime >= 16 && startTime < 18) {
+                            newRow["配達時間帯"] = "1618";
+                        } else if (startTime >= 18 && startTime < 20) {
+                            newRow["配達時間帯"] = "1820";
+                        } else if (startTime >= 19 && startTime < 21) {
+                            newRow["配達時間帯"] = "1921";
+                        } else {
+                            newRow["配達時間帯"] = "";
+                        }
+                    } catch (e) {
+                        console.error("Invalid delivery-start-date for time:", deliveryStartDate, e);
+                        newRow["配達時間帯"] = "";
+                    }
+                } else {
+                    newRow["配達時間帯"] = "";
+                }
+
+                newRow["お届け先コード"] = '';
+                let recipientPhoneNumber = (mainOrder["buyer-phone-number"] || '').replace(/[\s-]/g, '');
+                if (recipientPhoneNumber.startsWith('+81')) {
+                    recipientPhoneNumber = '0' + recipientPhoneNumber.substring(3);
+                }
+                recipientPhoneNumber = recipientPhoneNumber.replace(/\D/g, ''); // 非数字を全て除去
+                newRow["お届け先電話番号"] = recipientPhoneNumber;
+                newRow["お届け先電話番号枝番"] = '';
+                newRow["お届け先郵便番号"] = (mainOrder["ship-postal-code"] || '').replace(/-/g, '');
+
+                // 住所の結合 (都道府県+市区町村+住所1+住所2)
+                newRow["お届け先住所"] = [
+                    mainOrder["ship-state"] || '',
+                    mainOrder["ship-city"] || '',
+                    mainOrder["ship-address-1"] || '',
+                    mainOrder["ship-address-2"] || ''
+                ].filter(Boolean).join('');
+
+                // ship-address-3の分割ロジック
+                const shipAddress3 = mainOrder["ship-address-3"] || '';
+                let tempAddress3 = shipAddress3;
+                if (tempAddress3.length > 0) {
+                    newRow["お届け先アパートマンション名"] = tempAddress3.substring(0, 16);
+                    tempAddress3 = tempAddress3.substring(16);
+                } else {
+                    newRow["お届け先アパートマンション名"] = '';
+                }
+                
+                if (tempAddress3.length > 0) {
+                    newRow["お届け先会社・部門１"] = tempAddress3.substring(0, 16);
+                    tempAddress3 = tempAddress3.substring(16);
+                } else {
+                    newRow["お届け先会社・部門１"] = '';
+                }
+                
+                if (tempAddress3.length > 0) {
+                    newRow["お届け先会社・部門２"] = tempAddress3;
+                } else {
+                    newRow["お届け先会社・部門２"] = '';
+                }
+
+                newRow["お届け先名"] = mainOrder["recipient-name"] || '';
+                newRow["お届け先名(ｶﾅ)"] = ''; // AI抽出ではないため、空欄
+                newRow["敬称"] = ''; // デフォルト空欄
+
+                // ご依頼主情報
+                newRow["ご依頼主コード"] = ''; // 通常空欄
+                newRow["ご依頼主電話番号"] = shipperInfo.shipperPhone || ''; // デフォルト値を追加
+                newRow["ご依頼主電話番号枝番"] = '';
+                newRow["ご依頼主郵便番号"] = shipperInfo.shipperPostalCode || ''; // デフォルト値を追加
+                newRow["ご依頼主住所"] = `${shipperInfo.shipperPrefecture || ''}${shipperInfo.shipperCity || ''}${shipperInfo.shipperAddress || ''}`; // デフォルト値を追加
+                newRow["ご依頼主アパートマンション"] = shipperInfo.shipperBuilding || ''; // デフォルト値を追加
+                newRow["ご依頼主名"] = shipperInfo.shipperNameKanji || ''; // デフォルト値を追加
+                newRow["ご依頼主名(ｶﾅ)"] = shipperInfo.shipperNameKana || ''; // デフォルト値を追加
+
+                // 品名 (最大2つまで)
+                if (products.length > 0 && products[0].name) {
+                    let productName1 = products[0].name;
+                    newRow["品名１"] = productName1.length > 25 ? productName1.substring(0, 25) : productName1;
+                } else {
+                    newRow["品名１"] = '';
+                }
+                if (products.length > 1 && products[1].name) {
+                    let productName2 = products[1].name;
+                    newRow["品名２"] = productName2.length > 25 ? productName2.substring(0, 25) : productName2;
+                } else {
+                    newRow["品名２"] = '';
+                }
+
+                newRow["荷扱い１"] = handling1;
+                newRow["荷扱い２"] = handling2;
+                newRow["記事"] = ''; // デフォルト空欄
+
+                const totalQuantity = products.reduce((sum, p) => sum + p.quantity, 0); 
+                newRow["個数口表示フラグ"] = (totalQuantity > 1) ? "3" : ""; // 複数個の場合は"3"
+
+                newRow["請求先顧客コード"] = billingCustomerCode;
+                newRow["請求先分類コード"] = '';
+                newRow["運賃管理番号"] = freightManagementNumber;
+
+                // その他のカラムはデフォルト空欄
+
+                // CSV行を生成し、エスケープ処理
+                const csvLine = b2_columns.map(col => {
+                    let value = newRow[col];
+                    if (value === null || value === undefined) {
+                        value = '';
+                    }
+                    return `"${String(value).replace(/"/g, '""')}"`; // ダブルクォーテーションで囲み、内部のダブルクォーテーションは二重にする
+                }).join(',');
+                b2CloudRows.push(csvLine);
+            }
+
+            // --- 3. Shift-JISエンコーディングでCSV文字列を返す ---
+            const shiftJisEncoder = new TextEncoder('shift-jis');
+            const encodedCsvContent = shiftJisEncoder.encode(b2CloudRows.join('\r\n'));
+            
+            // Blobを生成し、URLオブジェクトを作成してダウンロードリンクとして提供する際に使用
+            const blob = new Blob([encodedCsvContent], { type: 'text/csv;charset=shift-jis;' });
+            
+            // ここではBlobを返すことで、呼び出し元でダウンロード処理を効率的に行える
+            return blob;
+        }
+
+
+        // --- イベントリスナーとUI操作 ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // ご依頼主情報をロード
+            loadShipperInfoFromLocalStorage();
+
+            // イベントリスナーの設定
+            document.getElementById('saveShipperInfoButton').addEventListener('click', saveShipperInfoToLocalStorage);
+
+            // amazonFile入力のchangeイベントリスナーを削除（自動保存をしない）
+            // amazonFileInput.addEventListener('change', () => {
+            //     saveShipperInfoToLocalStorage(); 
+            // });
+
+            document.getElementById('convertButton').addEventListener('click', async () => {
+                const convertButton = document.getElementById('convertButton');
+                const buttonText = document.getElementById('buttonText');
+                const loadingSpinner = document.getElementById('loadingSpinner');
+                const openB2CloudCheckbox = document.getElementById('openB2CloudAutomatically');
+
+                // 変換前にご依頼主情報をロード (localStorageに保存されていれば読み込まれる)
+                // これにより、shipperDataは常にオブジェクトになることが保証される
+                const shipperData = loadShipperInfoFromLocalStorage(); 
+
+                const amazonFileInput = document.getElementById('amazonFile');
+                const files = amazonFileInput.files;
+
+                if (!files.length) {
+                    showMessageModal('エラー', 'Amazon注文レポートCSV/TXTファイルを選択してください。', 'error');
+                    resetButtonState();
+                    return;
+                }
+                if (files.length > MAX_FILES) {
+                    showMessageModal('エラー', `Amazon注文レポートは最大${MAX_FILES}ファイルまで選択できます。`, 'error');
+                    resetButtonState();
+                    return;
+                }
+
+                buttonText.textContent = '変換中...';
+                loadingSpinner.classList.remove('hidden');
+                convertButton.disabled = true;
+
+                try {
+                    // フォームから現在の設定値を取得
+                    const shippingType = document.getElementById('shippingType').value;
+                    const coolType = document.getElementById('coolType').value;
+                    const handling1 = document.getElementById('handling1').value;
+                    const handling2 = document.getElementById('handling2').value;
+                    const billingCustomerCode = document.getElementById('billingCustomerCode').value;
+                    const freightManagementNumber = document.getElementById('freightManagementNumber').value;
+                    
+                    const csvBlob = await convertAmazonReportToB2CloudCSV(
+                        files,
+                        shipperData, // ここでlocalStorageから取得したshipperDataを渡す (オブジェクト保証済み)
+                        shippingType,
+                        coolType,
+                        handling1,
+                        handling2,
+                        billingCustomerCode,
+                        freightManagementNumber
+                    );
+
+                    const link = document.createElement("a");
+                    const url = URL.createObjectURL(csvBlob);
+                    link.setAttribute("href", url);
+                    
+                    const now = new Date();
+                    const timestamp = now.getFullYear() +
+                        String(now.getMonth() + 1).padStart(2, '0') +
+                        String(now.getDate()).padStart(2, '0') + '_' +
+                        String(now.getHours()).padStart(2, '0') +
+                        String(now.getMinutes()).padStart(2, '0') +
+                        String(now.getSeconds()).padStart(2, '0');
+                    
+                    link.setAttribute("download", `B2_output_${timestamp}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    showMessageModal('成功', 'CSVファイルの変換とダウンロードが完了しました。', 'success');
+
+                    if (openB2CloudCheckbox.checked) {
+                        setTimeout(() => {
+                            window.open('https://bmypage.kuronekoyamato.co.jp/bmypage/jsp/webbill.jsp', '_blank');
+                        }, 500);
+                    }
+                } catch (error) {
+                    console.error("変換中にエラーが発生しました:", error);
+                    showMessageModal('エラー', 'ファイルの読み込みまたは変換中にエラーが発生しました。' + (error.message ? ` 詳細: ${error.message}` : ''), 'error');
+                } finally {
+                    resetButtonState();
+                }
+            });
+
+            function resetButtonState() {
+                const convertButton = document.getElementById('convertButton');
+                const buttonText = document.getElementById('buttonText');
+                const loadingSpinner = document.getElementById('loadingSpinner');
+                buttonText.textContent = '変換してダウンロード';
+                loadingSpinner.classList.add('hidden');
+                convertButton.disabled = false;
+            }
+
+            document.getElementById('resetButton').addEventListener('click', () => {
+                document.getElementById('amazonFile').value = '';
+                clearShipperInfoForm(); // リセット時にご依頼主フォームもクリア
+                resetButtonState();
+            });
+
+            // --- ナビゲーションタブ機能 ---
+            const tabButtons = {
+                tool: document.getElementById('tab-tool'),
+                privacy: document.getElementById('tab-privacy')
+            };
+
+            const tabContents = {
+                tool: document.getElementById('tab-tool-content'),
+                privacy: document.getElementById('tab-privacy-content')
+            };
+
+            window.showTabContent = function(tabId) {
+                for (let key in tabContents) {
+                    tabContents[key].classList.add('hidden');
+                    tabContents[key].classList.remove('active');
+                    tabButtons[key].classList.replace('btn-primary', 'btn-secondary');
+                }
+
+                if (tabContents[tabId.replace('tab-', '').replace('-content', '')]) {
+                    tabContents[tabId.replace('tab-', '').replace('-content', '')].classList.remove('hidden');
+                    tabContents[tabId.replace('tab-', '').replace('-content', '')].classList.add('active');
+                    tabButtons[tabId.replace('tab-', '').replace('-content', '')].classList.replace('btn-secondary', 'btn-primary');
+                }
+            }
+
+            for (let key in tabButtons) {
+                tabButtons[key].addEventListener('click', (event) => {
+                    const buttonId = event.currentTarget.id;
+                    const contentId = `${buttonId}-content`;
+                    showTabContent(contentId);
+                });
+            }
+
+            // 初期表示
+            showTabContent('tab-tool-content');
+        });
+    </script>
+</body>
+</html>
