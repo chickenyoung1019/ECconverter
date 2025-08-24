@@ -1,1 +1,1 @@
-# amazon-b2-converter
+注文レポート→送り状変換ツール
