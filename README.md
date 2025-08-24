@@ -34,6 +34,7 @@ https://chickenyoung1019.github.io/ECconverter/
 
 アンケートへのご回答は [GoogleフォームのURLなど、アンケートへのリンクをここに記載] へお願いいたします。
 また、バグ報告や具体的な機能要望は GitHub Issues でも受け付けております。
+https://github.com/chickenyoung1019/ECconverter/issues
 
 ※いただいた情報は匿名で集計し、今後の機能改善に役立てさせていただきます。
 
