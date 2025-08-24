@@ -33,6 +33,7 @@ https://chickenyoung1019.github.io/ECconverter/
 その他ご要望：
 
 アンケートへのご回答は [https://docs.google.com/forms/d/e/1FAIpQLScagXrXQhleDKGOuTg9wWqukFAr-oPjAjSJw8f0_2Qu0Xtg1g/viewform?usp=dialog] へお願いいたします。
+
 また、バグ報告や具体的な機能要望は GitHub Issues でも受け付けております。
 https://github.com/chickenyoung1019/ECconverter/issues
 
