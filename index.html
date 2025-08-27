@@ -739,36 +739,61 @@
                 newRow["お届け先郵便番号"] = (mainOrder["ship-postal-code"] || '').replace(/-/g, '');
 
                 // 住所の結合 (都道府県+市区町村+住所1+住所2)
-                newRow["お届け先住所"] = [
-                    mainOrder["ship-state"] || '',
-                    mainOrder["ship-city"] || '',
-                    mainOrder["ship-address-1"] || '',
-                    mainOrder["ship-address-2"] || ''
-                ].filter(Boolean).join('');
+const fullAddress = [
+    mainOrder["ship-state"] || '',
+    mainOrder["ship-city"] || '',
+    mainOrder["ship-address-1"] || '',
+    mainOrder["ship-address-2"] || ''
+].filter(Boolean).join('');
 
-                // ship-address-3の分割ロジック
-                const shipAddress3 = mainOrder["ship-address-3"] || '';
-                let tempAddress3 = shipAddress3;
-                if (tempAddress3.length > 0) {
-                    newRow["お届け先アパートマンション名"] = tempAddress3.substring(0, 16);
-                    tempAddress3 = tempAddress3.substring(16);
-                } else {
-                    newRow["お届け先アパートマンション名"] = '';
-                }
-                
-                if (tempAddress3.length > 0) {
-                    newRow["お届け先会社・部門１"] = tempAddress3.substring(0, 16);
-                    tempAddress3 = tempAddress3.substring(16);
-                } else {
-                    newRow["お届け先会社・部門１"] = '';
-                }
-                
-                if (tempAddress3.length > 0) {
-                    newRow["お届け先会社・部門２"] = tempAddress3;
-                } else {
-                    newRow["お届け先会社・部門２"] = '';
-                }
+const shipAddress3 = mainOrder["ship-address-3"] || '';
 
+if (fullAddress.length <= 21) {
+    // 住所が21文字以下の場合は、住所欄にすべて収める
+    newRow["お届け先住所"] = fullAddress;
+    
+    // ship-address-3は従来通りアパート・マンション名以降に分割
+    let tempAddress3 = shipAddress3;
+    if (tempAddress3.length > 0) {
+        newRow["お届け先アパートマンション名"] = tempAddress3.substring(0, 16);
+        tempAddress3 = tempAddress3.substring(16);
+    } else {
+        newRow["お届け先アパートマンション名"] = '';
+    }
+    
+    if (tempAddress3.length > 0) {
+        newRow["お届け先会社・部門１"] = tempAddress3.substring(0, 16);
+        tempAddress3 = tempAddress3.substring(16);
+    } else {
+        newRow["お届け先会社・部門１"] = '';
+    }
+    
+    if (tempAddress3.length > 0) {
+        newRow["お届け先会社・部門２"] = tempAddress3;
+    } else {
+        newRow["お届け先会社・部門２"] = '';
+    }
+
+} else {
+    // 住所が21文字を超える場合は、超過分をアパート・マンション名に移動
+    newRow["お届け先住所"] = fullAddress.substring(0, 21);
+    newRow["お届け先アパートマンション名"] = fullAddress.substring(21);
+    
+    // 元のship-address-3は会社・部門1以降に分割
+    let tempAddress3 = shipAddress3;
+    if (tempAddress3.length > 0) {
+        newRow["お届け先会社・部門１"] = tempAddress3.substring(0, 16);
+        tempAddress3 = tempAddress3.substring(16);
+    } else {
+        newRow["お届け先会社・部門１"] = '';
+    }
+    
+    if (tempAddress3.length > 0) {
+        newRow["お届け先会社・部門２"] = tempAddress3;
+    } else {
+        newRow["お届け先会社・部門２"] = '';
+    }
+}
                 newRow["お届け先名"] = mainOrder["recipient-name"] || '';
                 newRow["お届け先名(ｶﾅ)"] = ''; // AI抽出ではないため、空欄
                 newRow["敬称"] = ''; // デフォルト空欄
@@ -982,6 +1007,7 @@
     </script>
 </body>
 </html>
+
 
 
 
